@@ -14,7 +14,8 @@ export class D2Processor {
       source: string,
       el: HTMLElement,
       ctx: MarkdownPostProcessorContext,
-      signal?: AbortSignal
+      signal?: AbortSignal,
+      blockID?: string
     ) => Promise<void>
   >;
   abortControllerMap: Map<string, AbortController>;
@@ -46,23 +47,32 @@ export class D2Processor {
       pageContainer.dataset.pageID = pageID;
     }
 
-    let debouncedFunc = this.debouncedMap.get(pageID);
+    const sectionInfo = ctx.getSectionInfo(el);
+    let blockID = el.dataset.d2BlockID;
+    if (sectionInfo) {
+      blockID = [pageID, ctx.sourcePath || ctx.docId, sectionInfo.lineStart].join(":");
+    } else if (!blockID) {
+      blockID = `${pageID}:${Math.floor(Math.random() * Date.now()).toString(36)}`;
+      el.dataset.d2BlockID = blockID;
+    }
+
+    let debouncedFunc = this.debouncedMap.get(blockID);
     if (!debouncedFunc) {
       // No need to debounce initial render
-      await this.export(source, el, ctx);
+      await this.export(source, el, ctx, undefined, blockID);
 
       debouncedFunc = debounce(this.export, this.plugin.settings.debounce, {
         leading: true,
       });
-      this.debouncedMap.set(pageID, debouncedFunc);
+      this.debouncedMap.set(blockID, debouncedFunc);
       return;
     }
 
-    this.abortControllerMap.get(pageID)?.abort();
+    this.abortControllerMap.get(blockID)?.abort();
     const newAbortController = new AbortController();
-    this.abortControllerMap.set(pageID, newAbortController);
+    this.abortControllerMap.set(blockID, newAbortController);
 
-    await debouncedFunc(source, el, ctx, newAbortController.signal);
+    await debouncedFunc(source, el, ctx, newAbortController.signal, blockID);
   };
 
   isValidUrl = (urlString: string) => {
@@ -124,7 +134,8 @@ export class D2Processor {
     source: string,
     el: HTMLElement,
     ctx: MarkdownPostProcessorContext,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    blockID?: string
   ) => {
     try {
       const image = await this.generatePreview(source, signal);
@@ -148,6 +159,14 @@ export class D2Processor {
         });
       }
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        el.empty();
+        if (this.prevImage) {
+          this.insertImage(this.prevImage, el, ctx);
+        }
+        return;
+      }
+
       el.empty();
       const errorEl = el.createEl("pre", {
         cls: "markdown-rendered pre Preview__Error",
@@ -163,8 +182,12 @@ export class D2Processor {
         this.insertImage(this.prevImage, el, ctx);
       }
     } finally {
-      const pageContainer = (ctx as any).containerEl;
-      this.abortControllerMap.delete(pageContainer.dataset.id);
+      const currentController = blockID
+        ? this.abortControllerMap.get(blockID)
+        : undefined;
+      if (blockID && (!signal || currentController?.signal === signal)) {
+        this.abortControllerMap.delete(blockID);
+      }
     }
   };
 
