@@ -31,6 +31,7 @@
     "typescript": "4.7.4"
   },
   "dependencies": {
+    "@terrastruct/d2": "^0.1.21",
     "child_process": "^1.0.2",
     "lodash.debounce": "^4.0.8"
   }

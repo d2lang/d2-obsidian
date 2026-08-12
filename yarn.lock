@@ -23,6 +23,11 @@
     "@nodelib/fs.scandir" "2.1.5"
     fastq "^1.6.0"
 
+"@terrastruct/d2@^0.1.21":
+  version "0.1.21"
+  resolved "https://registry.yarnpkg.com/@terrastruct/d2/-/d2-0.1.21.tgz#3e4cad835513340308b2fc7c65b1f7296f30055f"
+  integrity sha512-b/oLeyF0l3jwOHGLeJw8yWtAGL0qNxEsBJiflrNWA+p39kEUJkexqye9zYvWa4oBPz4ZeJpvamEMxxEtTcMLhw==
+
 "@types/codemirror@0.0.108":
   version "0.0.108"
   resolved "https://registry.yarnpkg.com/@types/codemirror/-/codemirror-0.0.108.tgz#e640422b666bf49251b384c390cdeb2362585bde"

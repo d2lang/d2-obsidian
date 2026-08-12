@@ -3,7 +3,7 @@ import { exec, execSync } from "child_process";
 import { delimiter } from "path";
 import debounce from "lodash.debounce";
 import os from "os";
-
+import { CompileOptions, D2 } from "@terrastruct/d2";
 import D2Plugin from "./main";
 
 export class D2Processor {
@@ -169,97 +169,52 @@ export class D2Processor {
   };
 
   async generatePreview(source: string, signal?: AbortSignal): Promise<string> {
-    const pathArray = [process.env.PATH, "/opt/homebrew/bin", "/usr/local/bin"];
+    const d2 = new D2();
 
-    // platform will be win32 even on 64 bit windows
-    if (os.platform() === "win32") {
-      pathArray.push(`C:\Program Files\D2`);
-    } else {
-      pathArray.push(`${process.env.HOME}/.local/bin`);
-    }
-
-    let GOPATH = "";
-    try {
-      GOPATH = execSync("go env GOPATH", {
-        env: {
-          ...process.env,
-          PATH: pathArray.join(delimiter),
-        },
-      }).toString();
-    } catch (error) {
-      // ignore if go is not installed
-    }
-
-    if (GOPATH) {
-      pathArray.push(`${GOPATH.replace("\n", "")}/bin`);
-    }
-    if (this.plugin.settings.d2Path) {
-      pathArray.push(this.plugin.settings.d2Path);
-    }
-
-    const options: any = {
-      ...process.env,
-      env: {
-        PATH: pathArray.join(delimiter),
-      },
-      signal,
+    let renderOptions: CompileOptions = {
+      sketch: this.plugin.settings.sketch,
+      themeID: this.plugin.settings.theme,
+      // This doesn't seem to be used at all, so we could omit it.
+      // Maybe there's some way to tell d2 if Obsidian is set to dark mode?
+      // This could influence the default; or we could supply another setting
+      // to allow users to quickly and seamlessly switch from light to dark mode.
+      darkThemeID: this.plugin.settings.theme,
+      // This does not actually seem to do anything at the moment,
+      // from my limited testing.
+      pad: this.plugin.settings.pad,
+      // If the layout is set to TALA, this errors.
+      // There does not seem to be TALA-support in the WASM-build yet.
+      layout: this.plugin.settings.layoutEngine,
     };
-    if (this.plugin.settings.apiToken) {
-      options.env.TSTRUCT_TOKEN = this.plugin.settings.apiToken;
-    }
 
-    let args = [
-      `d2`,
-      "-",
-      `--theme=${this.plugin.settings.theme}`,
-      `--layout=${this.plugin.settings.layoutEngine}`,
-      `--pad=${this.plugin.settings.pad}`,
-      `--sketch=${this.plugin.settings.sketch}`,
-      "--bundle=false",
-      "--scale=1",
-    ];
-    const cmd = args.join(" ");
-    const child = exec(cmd, options);
-    child.stdin?.write(source);
-    child.stdin?.end();
+    // The following proposal is a stupid, but actually working workaround for the problem with `vars.d2-config` shown below.
+    // By compiling twice, we can extract the merged config from `result.diagram.config`
+    //
+    // let result = await d2.compile(source, renderOptions);
+    // renderOptions = { ...renderOptions, ...result.diagram.config };
+    // result = await d2.compile(source, renderOptions);
 
-    let stdout: any;
-    let stderr: any;
+    const result = await d2.compile(source, renderOptions);
 
-    if (child.stdout) {
-      child.stdout.on("data", (data) => {
-        if (stdout === undefined) {
-          stdout = data;
-        } else {
-          stdout += data;
-        }
-      });
-    }
+    // Just inputting `renderOptions` again means `vars.d2-config` does not work.
+    // From my logging, the d2.compile does not output any `options` or `renderOptions`,
+    // contrary to what the docs say
+    const svg = await d2.render(result.diagram, renderOptions);
 
-    if (child.stderr) {
-      child.stderr.on("data", (data) => {
-        if (stderr === undefined) {
-          stderr = data;
-        } else {
-          stderr += data;
-        }
-      });
-    }
+    // Obviously temporary and just used to inspect the actual behaviour
+    // since the docs are understandably still a little light on details.
+    console.group("Render Options");
+    console.table(renderOptions);
+    console.groupEnd();
 
-    return new Promise((resolve, reject) => {
-      child.on("error", reject);
-      child.on("close", (code: number) => {
-        if (code === 0) {
-          resolve(stdout);
-          return;
-        } else if (stderr) {
-          console.error(stderr);
-          reject(new Error(stderr));
-        } else if (stdout) {
-          console.error(stdout);
-          reject(new Error(stdout));
-        }
-      });
-    });
+    console.group("Compile Result");
+    console.log(result);
+    console.groupEnd();
+
+    console.group("SVG");
+    console.log(svg);
+    console.groupEnd();
+
+    return svg;
   }
 }
