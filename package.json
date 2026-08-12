@@ -1,6 +1,6 @@
 {
   "name": "d2-obsidian",
-  "version": "1.1.4",
+  "version": "1.2.0",
   "description": "This is the official D2 plugin for Obsidian.",
   "homepage": "https://d2lang.com",
   "bugs": {
@@ -31,6 +31,7 @@
     "typescript": "4.7.4"
   },
   "dependencies": {
+    "@panzoom/panzoom": "^4.5.1",
     "child_process": "^1.0.2",
     "lodash.debounce": "^4.0.8"
   }

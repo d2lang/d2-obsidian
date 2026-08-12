@@ -5,6 +5,7 @@ import debounce from "lodash.debounce";
 import os from "os";
 
 import D2Plugin from "./main";
+import Panzoom, { PanzoomOptions } from "@panzoom/panzoom";
 
 export class D2Processor {
   plugin: D2Plugin;
@@ -105,7 +106,11 @@ export class D2Processor {
     }, svgEl.outerHTML);
   };
 
-  insertImage(image: string, el: HTMLElement, ctx: MarkdownPostProcessorContext) {
+  insertImage(
+    image: string,
+    el: HTMLElement,
+    ctx: MarkdownPostProcessorContext
+  ) {
     const parser = new DOMParser();
     const svg = parser.parseFromString(image, "image/svg+xml");
     const containerEl = el.createDiv();
@@ -118,6 +123,23 @@ export class D2Processor {
 
     this.formatLinks(svgEl);
     containerEl.innerHTML = this.sanitizeSVGIDs(svgEl, ctx.docId);
+
+    this.setupPanzoom(containerEl);
+  }
+
+  setupPanzoom(elem: HTMLElement) {
+    const panzoomOpts: PanzoomOptions = {
+      maxScale: 10,
+      animate: true,
+    };
+
+    const panzoom = Panzoom(elem, panzoomOpts);
+
+    elem.addEventListener("wheel", (event) => {
+      if (!event.ctrlKey) return;
+
+      panzoom.zoomWithWheel(event);
+    });
   }
 
   export = async (
