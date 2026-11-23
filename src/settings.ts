@@ -1,4 +1,4 @@
-import { Notice, App, PluginSettingTab, Setting } from "obsidian";
+import { Notice, App, Platform, PluginSettingTab, Setting } from "obsidian";
 
 import D2Plugin from "./main";
 import { LAYOUT_ENGINES } from "./constants";
@@ -27,7 +27,6 @@ export const DEFAULT_SETTINGS: D2PluginSettings = {
 
 export class D2SettingsTab extends PluginSettingTab {
   plugin: D2Plugin;
-  talaSettings: HTMLDivElement;
 
   constructor(app: App, plugin: D2Plugin) {
     super(app, plugin);
@@ -42,7 +41,7 @@ export class D2SettingsTab extends PluginSettingTab {
     new Setting(talaSettings)
       .setName("API token")
       .setDesc(
-        'To use TALA, copy your API token here or in ~/.local/state/tstruct/auth.json under the field "api_token"'
+        "Only older desktop TALA installations require a token. The bundled TALA layout works offline without one."
       )
       .addText((text) =>
         text
@@ -58,8 +57,6 @@ export class D2SettingsTab extends PluginSettingTab {
             }
           })
       );
-
-    this.talaSettings = talaSettings;
   }
 
   display(): void {
@@ -69,9 +66,7 @@ export class D2SettingsTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Layout engine")
-      .setDesc(
-        'Available layout engines include "dagre", "ELK", and "TALA" (TALA must be installed separately from D2)'
-      )
+      .setDesc("Dagre, ELK, and TALA are included in the bundled compiler.")
       .addDropdown((dropdown) => {
         dropdown
           .addOption(LAYOUT_ENGINES.DAGRE.value, LAYOUT_ENGINES.DAGRE.label)
@@ -81,11 +76,7 @@ export class D2SettingsTab extends PluginSettingTab {
           .onChange(async (value) => {
             this.plugin.settings.layoutEngine = value;
             await this.plugin.saveSettings();
-            if (value === LAYOUT_ENGINES.TALA.value) {
-              this.addTALASettings();
-            } else {
-              this.talaSettings?.remove();
-            }
+            this.display();
           });
       });
 
@@ -185,10 +176,12 @@ export class D2SettingsTab extends PluginSettingTab {
           })
       );
 
+    if (!Platform.isDesktopApp) return;
+
     new Setting(containerEl)
       .setName("Path (optional)")
       .setDesc(
-        "Customize the local path to the directory `d2` is installed in (ex. if d2 is located at `/usr/local/bin/d2`, then the path is `/usr/local/bin`). This is only necessary if `d2` is not found automatically by the plugin (but is installed)."
+        "Directory containing your local D2 executable, for example /usr/local/bin. Leave empty to detect D2 automatically and use the bundled compiler when it is unavailable."
       )
       .addText((text) => {
         text

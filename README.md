@@ -4,7 +4,7 @@
     D2 Obsidian Plugin
   </h2>
 
-D2 is a modern diagram scripting language thats turns text to diagrams. The source code for D2, as well as install instructions and all other information, can be found at
+D2 is a modern diagram scripting language that turns text into diagrams. The source code for D2, as well as install instructions and all other information, can be found at
 [https://github.com/d2lang/d2](https://github.com/d2lang/d2).
 
 [![ci](https://github.com/d2lang/d2-obsidian/actions/workflows/ci.yml/badge.svg)](https://github.com/d2lang/d2-obsidian/actions/workflows/ci.yml)
@@ -18,9 +18,13 @@ https://user-images.githubusercontent.com/6413609/205414613-5b2559f1-0645-4432-b
 
 ## Installation
 
-Settings > Community plugins > Browse > Search for "D2"
+In Obsidian, open **Settings → Community plugins → Browse**, search for **D2**, then select **Install** and **Enable**.
 
-**important**: [D2](https://github.com/d2lang/d2) must be installed for this plugin to work currently. We will later on introduce a remote API as an option, but currently this plugin calls your local installation of D2.
+Write a fenced `d2` block in a note to see it rendered in Live Preview or Reading view. The plugin includes an offline compiler with the Dagre, ELK, and TALA layouts on desktop, iPhone, iPad, and Android.
+
+On desktop, the plugin uses your installed D2 CLI when available. This preserves your CLI version, local filesystem access, and TALA installation. Mobile always uses the bundled compiler, including for TALA, with no token required. The bundled compiler renders the contents of each block and cannot import files from disk.
+
+If you use Obsidian Sync Standard, install or update D2 from Community plugins on each device. The bundled compiler exceeds that plan’s [5 MB per-file limit](https://obsidian.md/help/sync/plans).
 
 ## Configurations
 
@@ -30,7 +34,7 @@ Settings > Community plugins > Browse > Search for "D2"
 - `Sketch mode`: Render the diagram to look like it was sketched by hand.
 - `Container height`: Diagram max render height in pixels (Requires d2 v0.2.2 and up).
 - `Debounce`: Number of milliseconds to wait after a change has made to refresh the diagram (min 100).
-- `Path`: Customize the path to `d2` (optional). We check common places D2 might be installed, along with your system path. However, your OS or setup may require you to input your path to `d2` manually. To do so, type `where d2` into your terminal, and copy everything in the path up until `/d2` and paste it into this configuration.
+- `Path` (desktop): Set the directory containing your D2 executable if the plugin cannot find it automatically.
 
 ## Usage
 
@@ -45,12 +49,14 @@ Hello -> World
 - Clone this repo.
 - Run `yarn` to install dependencies.
 - Run `yarn run dev` to start compilation in watch mode.
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `[VaultFolder]/.obsidian/plugins/d2/`.
+- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `[VaultFolder]/.obsidian/plugins/d2-obsidian/`.
+
+Run the mobile regression test with `yarn build`, `yarn playwright-core install webkit`, and `yarn test:mobile`. The [compiler build instructions](./vendor/README.md) explain how to regenerate the bundled D2 dependency.
 
 ## FAQ
 
-- I have D2 installed but I'm running into `D2 Compilation Error: d2: command not found`
-  - The Obsidian plugin may not be able to locate your D2 installation. Get the path to the D2 installation by executing `where d2` in the command line, then copy that path minus the executable itself into the `Path` plugin setting (so if the path is `/usr/local/bin/d2`, then you want to copy `/usr/local/bin`).
+- How do I use an installed D2 CLI or TALA on desktop?
+  - Set **Path** to the directory containing the `d2` executable, for example `/usr/local/bin`. Older CLI versions may need a separate TALA installation. Clear **Path** to allow the bundled fallback.
 - I have a question or need help.
   - The best way to get help is to ask on [D2 Discord](https://discord.gg/NF6X8K4eDq).
 - I'd like to contribute.
