@@ -20,10 +20,7 @@ export default class D2Plugin extends Plugin {
   }
 
   onunload() {
-    const abortControllers = this.processor.abortControllerMap.values();
-    Array.from(abortControllers).forEach((controller) => {
-      controller.abort();
-    });
+    this.processor?.dispose();
   }
 
   async loadSettings() {

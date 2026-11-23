@@ -22,6 +22,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      - run: yarn playwright-core install --with-deps webkit
+      - run: yarn test:mobile
   nofixups:
     runs-on: ubuntu-latest
     steps:

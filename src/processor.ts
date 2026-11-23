@@ -1,69 +1,78 @@
-import { MarkdownPostProcessorContext, ButtonComponent } from "obsidian";
-import { exec, execSync } from "child_process";
-import { delimiter } from "path";
+import {
+  MarkdownPostProcessorContext,
+  MarkdownRenderChild,
+  ButtonComponent,
+} from "obsidian";
 import debounce from "lodash.debounce";
-import os from "os";
 
-import D2Plugin from "./main";
+import type D2Plugin from "./main";
+import { D2Renderer } from "./renderer";
 
 export class D2Processor {
-  plugin: D2Plugin;
-  debouncedMap: Map<
-    string,
-    (
-      source: string,
-      el: HTMLElement,
-      ctx: MarkdownPostProcessorContext,
-      signal?: AbortSignal
-    ) => Promise<void>
-  >;
-  abortControllerMap: Map<string, AbortController>;
-  prevImage: string;
-  abortController: AbortController;
+  private readonly blocks = new Map<HTMLElement, DiagramBlock>();
+  readonly renderer = new D2Renderer();
+  private nextId = 0;
 
-  constructor(plugin: D2Plugin) {
-    this.plugin = plugin;
-    this.debouncedMap = new Map();
-    this.abortControllerMap = new Map();
-  }
+  constructor(readonly plugin: D2Plugin) {}
 
-  attemptExport = async (
+  attemptExport = (
     source: string,
     el: HTMLElement,
     ctx: MarkdownPostProcessorContext
   ) => {
-    el.createEl("h6", {
+    let block = this.blocks.get(el);
+    if (!block) {
+      block = new DiagramBlock(el, this, `${ctx.docId}-${this.nextId++}`);
+      this.blocks.set(el, block);
+      ctx.addChild(block);
+    }
+    return block.update(source);
+  };
+
+  remove(el: HTMLElement) {
+    this.blocks.delete(el);
+  }
+
+  dispose() {
+    for (const block of this.blocks.values()) block.cancel();
+    this.blocks.clear();
+    this.renderer.dispose();
+  }
+}
+
+class DiagramBlock extends MarkdownRenderChild {
+  private controller?: AbortController;
+  private previousImage?: string;
+  private readonly schedule = debounce(
+    (source: string, signal: AbortSignal) => this.render(source, signal),
+    this.owner.plugin.settings.debounce,
+    { leading: true }
+  );
+
+  constructor(el: HTMLElement, private owner: D2Processor, private docId: string) {
+    super(el);
+  }
+
+  update(source: string) {
+    this.controller?.abort();
+    this.controller = new AbortController();
+    this.containerEl.empty();
+    this.containerEl.createEl("h6", {
       text: "Generating D2 diagram...",
       cls: "D2__Loading",
     });
+    return this.schedule(source, this.controller.signal);
+  }
 
-    // we need to generate a debounce per split page, and ctx.containerEl is the only element we have access to that's page specific
-    // however, it is not publically available in MarkdownPostProcessorContext, so we hack its access by casting it to an 'any' type
-    const pageContainer = (ctx as any).containerEl;
-    let pageID = pageContainer.dataset.pageID;
-    if (!pageID) {
-      pageID = Math.floor(Math.random() * Date.now()).toString();
-      pageContainer.dataset.pageID = pageID;
-    }
+  cancel() {
+    this.schedule.cancel();
+    this.controller?.abort();
+  }
 
-    let debouncedFunc = this.debouncedMap.get(pageID);
-    if (!debouncedFunc) {
-      // No need to debounce initial render
-      await this.export(source, el, ctx);
-
-      debouncedFunc = debounce(this.export, this.plugin.settings.debounce, {
-        leading: true,
-      });
-      this.debouncedMap.set(pageID, debouncedFunc);
-      return;
-    }
-
-    this.abortControllerMap.get(pageID)?.abort();
-    const newAbortController = new AbortController();
-    this.abortControllerMap.set(pageID, newAbortController);
-
-    await debouncedFunc(source, el, ctx, newAbortController.signal);
-  };
+  onunload() {
+    this.cancel();
+    this.owner.remove(this.containerEl);
+  }
 
   isValidUrl = (urlString: string) => {
     let url;
@@ -105,161 +114,55 @@ export class D2Processor {
     }, svgEl.outerHTML);
   };
 
-  insertImage(image: string, el: HTMLElement, ctx: MarkdownPostProcessorContext) {
+  insertImage(image: string, el: HTMLElement, docId: string) {
     const parser = new DOMParser();
     const svg = parser.parseFromString(image, "image/svg+xml");
     const containerEl = el.createDiv();
 
     const svgEl = svg.documentElement;
-    svgEl.style.maxHeight = `${this.plugin.settings.containerHeight}px`;
+    svgEl.style.maxHeight = `${this.owner.plugin.settings.containerHeight}px`;
     svgEl.style.maxWidth = "100%";
     svgEl.style.height = "fit-content";
     svgEl.style.width = "fit-content";
 
     this.formatLinks(svgEl);
-    containerEl.innerHTML = this.sanitizeSVGIDs(svgEl, ctx.docId);
+    containerEl.innerHTML = this.sanitizeSVGIDs(svgEl, docId);
   }
 
-  export = async (
-    source: string,
-    el: HTMLElement,
-    ctx: MarkdownPostProcessorContext,
-    signal?: AbortSignal
-  ) => {
+  private async render(source: string, signal: AbortSignal) {
+    const el = this.containerEl;
     try {
-      const image = await this.generatePreview(source, signal);
-      if (image) {
-        el.empty();
-        this.prevImage = image;
-        this.insertImage(image, el, ctx);
-
-        const button = new ButtonComponent(el)
-          .setClass("Preview__Recompile")
-          .setIcon("recompile")
-          .onClick((e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            el.empty();
-            this.attemptExport(source, el, ctx);
-          });
-
-        button.buttonEl.createEl("span", {
-          text: "Recompile",
-        });
-      }
-    } catch (err) {
+      const image = await this.owner.renderer.render(
+        source,
+        this.owner.plugin.settings,
+        signal
+      );
+      if (signal.aborted) return;
       el.empty();
-      const errorEl = el.createEl("pre", {
-        cls: "markdown-rendered pre Preview__Error",
-      });
+      this.previousImage = image;
+      this.insertImage(image, el, this.docId);
+
+      const button = new ButtonComponent(el)
+        .setClass("Preview__Recompile")
+        .setIcon("recompile")
+        .onClick((e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.update(source);
+        });
+      button.buttonEl.createEl("span", { text: "Recompile" });
+    } catch (error) {
+      if (signal.aborted) return;
+      el.empty();
+      const errorEl = el.createEl("pre", { cls: "markdown-rendered pre Preview__Error" });
       errorEl.createEl("code", {
         text: "D2 Compilation Error:",
         cls: "Preview__Error--Title",
       });
       errorEl.createEl("code", {
-        text: err.message,
+        text: error instanceof Error ? error.message : String(error),
       });
-      if (this.prevImage) {
-        this.insertImage(this.prevImage, el, ctx);
-      }
-    } finally {
-      const pageContainer = (ctx as any).containerEl;
-      this.abortControllerMap.delete(pageContainer.dataset.id);
+      if (this.previousImage) this.insertImage(this.previousImage, el, this.docId);
     }
-  };
-
-  async generatePreview(source: string, signal?: AbortSignal): Promise<string> {
-    const pathArray = [process.env.PATH, "/opt/homebrew/bin", "/usr/local/bin"];
-
-    // platform will be win32 even on 64 bit windows
-    if (os.platform() === "win32") {
-      pathArray.push(`C:\Program Files\D2`);
-    } else {
-      pathArray.push(`${process.env.HOME}/.local/bin`);
-    }
-
-    let GOPATH = "";
-    try {
-      GOPATH = execSync("go env GOPATH", {
-        env: {
-          ...process.env,
-          PATH: pathArray.join(delimiter),
-        },
-      }).toString();
-    } catch (error) {
-      // ignore if go is not installed
-    }
-
-    if (GOPATH) {
-      pathArray.push(`${GOPATH.replace("\n", "")}/bin`);
-    }
-    if (this.plugin.settings.d2Path) {
-      pathArray.push(this.plugin.settings.d2Path);
-    }
-
-    const options: any = {
-      ...process.env,
-      env: {
-        PATH: pathArray.join(delimiter),
-      },
-      signal,
-    };
-    if (this.plugin.settings.apiToken) {
-      options.env.TSTRUCT_TOKEN = this.plugin.settings.apiToken;
-    }
-
-    let args = [
-      `d2`,
-      "-",
-      `--theme=${this.plugin.settings.theme}`,
-      `--layout=${this.plugin.settings.layoutEngine}`,
-      `--pad=${this.plugin.settings.pad}`,
-      `--sketch=${this.plugin.settings.sketch}`,
-      "--bundle=false",
-      "--scale=1",
-    ];
-    const cmd = args.join(" ");
-    const child = exec(cmd, options);
-    child.stdin?.write(source);
-    child.stdin?.end();
-
-    let stdout: any;
-    let stderr: any;
-
-    if (child.stdout) {
-      child.stdout.on("data", (data) => {
-        if (stdout === undefined) {
-          stdout = data;
-        } else {
-          stdout += data;
-        }
-      });
-    }
-
-    if (child.stderr) {
-      child.stderr.on("data", (data) => {
-        if (stderr === undefined) {
-          stderr = data;
-        } else {
-          stderr += data;
-        }
-      });
-    }
-
-    return new Promise((resolve, reject) => {
-      child.on("error", reject);
-      child.on("close", (code: number) => {
-        if (code === 0) {
-          resolve(stdout);
-          return;
-        } else if (stderr) {
-          console.error(stderr);
-          reject(new Error(stderr));
-        } else if (stdout) {
-          console.error(stdout);
-          reject(new Error(stdout));
-        }
-      });
-    });
   }
 }
