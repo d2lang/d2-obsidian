@@ -89,12 +89,21 @@ class DiagramBlock extends MarkdownRenderChild {
     const links = svgEl.querySelectorAll("a");
     links.forEach((link: HTMLElement) => {
       const href = link.getAttribute("href") ?? "";
-      // Check for internal link
-      if (!this.isValidUrl(href)) {
-        link.classList.add("internal-link");
-        link.setAttribute("data-href", href);
-        link.setAttribute("target", "_blank");
-        link.setAttribute("rel", "noopener");
+
+      // Leave http/https links as is
+      if (this.isValidUrl(href)) return;
+
+      // Add attributes to make the link Obsidian compatible
+      link.classList.add("internal-link");
+      link.setAttribute("data-href", href);
+      link.setAttribute("target", "_blank");
+      link.setAttribute("rel", "noopener");
+
+      // Check for Obsidian "[[]]" internal links
+      const internalLink = href.match(/^\[\[([^\]]+)]]$/);
+      if (internalLink) {
+        const [_, linkText] = internalLink;
+        link.setAttribute("data-href", linkText);
       }
     });
   };
