@@ -1,7 +1,7 @@
 #!/bin/sh
 # Rebuild the browser-only package from a clean checkout of the pinned D2 source.
 set -eu
-revision=710a5d7bdb71871bbf2e6792ee72e147c97f4d71
+revision=aebb98d4444dfaffa72661f79bbcc4fb4d15aebc
 vendor=$(cd "$(dirname "$0")/../vendor" && pwd)
 cd "${1:?usage: ci/vendor-d2.sh /path/to/d2}"
 if [ "$(git rev-parse HEAD)" != "$revision" ] || [ -n "$(git status --porcelain)" ]; then
