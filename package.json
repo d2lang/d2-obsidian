@@ -22,6 +22,7 @@
   "license": "MIT",
   "devDependencies": {
     "@types/lodash.debounce": "^4.0.7",
+    "@types/markdown-it": "14.1.2",
     "@types/node": "^16.11.6",
     "@typescript-eslint/eslint-plugin": "5.29.0",
     "@typescript-eslint/parser": "5.29.0",
@@ -33,7 +34,8 @@
     "typescript": "4.7.4"
   },
   "dependencies": {
-    "@d2lang/d2": "file:vendor/d2-browser-710a5d7.tgz",
-    "lodash.debounce": "^4.0.8"
+    "@d2lang/d2": "file:vendor/d2-browser-aebb98d.tgz",
+    "lodash.debounce": "^4.0.8",
+    "markdown-it": "14.3.3"
   }
 }

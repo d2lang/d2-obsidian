@@ -22,6 +22,8 @@ In Obsidian, open **Settings → Community plugins → Browse**, search for **D2
 
 Write a fenced `d2` block in a note to see it rendered in Live Preview or Reading view. The plugin includes an offline compiler with the Dagre, ELK, and TALA layouts on desktop, iPhone, iPad, and Android.
 
+To format the D2 source, place the cursor in the block while editing the note and run **D2: Format D2 Block** from the command palette. The command also works offline on mobile.
+
 On desktop, the plugin uses your installed D2 CLI when available. This preserves your CLI version, local filesystem access, and TALA installation. Mobile always uses the bundled compiler, including for TALA, with no token required. The bundled compiler renders the contents of each block and cannot import files from disk.
 
 If you use Obsidian Sync Standard, install or update D2 from Community plugins on each device. The bundled compiler exceeds that plan’s [5 MB per-file limit](https://obsidian.md/help/sync/plans).

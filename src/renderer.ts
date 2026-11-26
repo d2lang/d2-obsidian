@@ -26,9 +26,7 @@ export class D2Renderer {
       }
     }
 
-    const { D2 } = await import("@d2lang/d2");
-    if (this.disposed || signal.aborted) throw new Error("Render cancelled");
-    const compiler = (this.compiler ??= new D2());
+    const compiler = await this.getCompiler(signal);
     return compiler.renderSVG(source, {
       layout:
         settings.layoutEngine === "elk" || settings.layoutEngine === "tala"
@@ -39,6 +37,17 @@ export class D2Renderer {
       sketch: settings.sketch,
       scale: 1,
     });
+  }
+
+  async format(source: string): Promise<string> {
+    const compiler = await this.getCompiler();
+    return compiler.format(source);
+  }
+
+  private async getCompiler(signal?: AbortSignal): Promise<D2> {
+    const { D2 } = await import("@d2lang/d2");
+    if (this.disposed || signal?.aborted) throw new Error("D2 operation cancelled");
+    return (this.compiler ??= new D2());
   }
 
   dispose() {
