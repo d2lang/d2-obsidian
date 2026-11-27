@@ -1,14 +1,12 @@
-import { Notice, App, Platform, PluginSettingTab, Setting } from "obsidian";
+import { Notice, App, PluginSettingTab, Setting } from "obsidian";
 
 import D2Plugin from "./main";
 import { LAYOUT_ENGINES } from "./constants";
 
 export interface D2PluginSettings {
   layoutEngine: string | null;
-  apiToken: string;
   debounce: number;
   theme: number | null;
-  d2Path: string;
   pad: number | null;
   sketch: boolean | null;
   containerHeight: number;
@@ -18,8 +16,6 @@ export const DEFAULT_SETTINGS: D2PluginSettings = {
   layoutEngine: null,
   debounce: 500,
   theme: null,
-  apiToken: "",
-  d2Path: "",
   pad: null,
   sketch: null,
   containerHeight: 800,
@@ -31,30 +27,6 @@ export class D2SettingsTab extends PluginSettingTab {
   constructor(app: App, plugin: D2Plugin) {
     super(app, plugin);
     this.plugin = plugin;
-  }
-
-  addTALASettings() {
-    const talaSettings = this.containerEl.createEl("details");
-    talaSettings.createEl("summary", { text: "Legacy TALA" });
-    new Setting(talaSettings)
-      .setName("API token")
-      .setDesc(
-        "Only older desktop TALA installations require a token. The bundled TALA layout works offline without one."
-      )
-      .addText((text) => {
-        text.inputEl.type = "password";
-        text
-          .setPlaceholder("tstruct_...")
-          .setValue(this.plugin.settings.apiToken)
-          .onChange(async (value) => {
-            if (value && !value.startsWith("tstruct_")) {
-              new Notice("Invalid API token");
-            } else {
-              this.plugin.settings.apiToken = value;
-              await this.plugin.saveSettings();
-            }
-          });
-      });
   }
 
   display(): void {
@@ -137,7 +109,7 @@ export class D2SettingsTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Container height")
-      .setDesc("Diagram max render height in pixels (Requires d2 v0.2.2 and up)")
+      .setDesc("Maximum diagram height in pixels")
       .addText((text) =>
         text
           .setPlaceholder(String(DEFAULT_SETTINGS.containerHeight))
@@ -181,24 +153,5 @@ export class D2SettingsTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           })
       );
-
-    if (!Platform.isDesktopApp) return;
-
-    new Setting(containerEl)
-      .setName("Path (optional)")
-      .setDesc(
-        "Directory containing your local D2 executable, for example /usr/local/bin. Leave empty to detect D2 automatically and use the bundled compiler when it is unavailable."
-      )
-      .addText((text) => {
-        text
-          .setPlaceholder("/usr/local/bin")
-          .setValue(this.plugin.settings.d2Path)
-          .onChange(async (value) => {
-            this.plugin.settings.d2Path = value;
-            await this.plugin.saveSettings();
-          });
-      });
-
-    this.addTALASettings();
   }
 }

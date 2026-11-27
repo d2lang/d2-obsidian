@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { webkit } from "playwright-core";
+import { testVaultImports } from "./vault-imports.mjs";
+
+testVaultImports(webkit, false);
 
 test(
   "the release bundle renders and formats offline in WebKit",

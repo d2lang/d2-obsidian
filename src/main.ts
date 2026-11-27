@@ -26,7 +26,8 @@ export default class D2Plugin extends Plugin {
   }
 
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const { d2Path, apiToken, ...saved } = (await this.loadData()) ?? {};
+    this.settings = { ...DEFAULT_SETTINGS, ...saved };
   }
 
   async saveSettings() {
