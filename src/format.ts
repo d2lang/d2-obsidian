@@ -1,6 +1,6 @@
 import MarkdownIt from "markdown-it";
 import { Notice } from "obsidian";
-import type { Command, Editor, MarkdownView } from "obsidian";
+import type { Command, Editor, MarkdownFileInfo } from "obsidian";
 import type { D2Renderer } from "./renderer";
 
 const markdown = new MarkdownIt("commonmark");
@@ -35,7 +35,7 @@ function findD2Block(note: string, cursorLine: number) {
 
 async function formatBlock(
   editor: Editor,
-  view: MarkdownView,
+  view: MarkdownFileInfo,
   renderer: D2Renderer,
   note: string,
   block: NonNullable<ReturnType<typeof findD2Block>>

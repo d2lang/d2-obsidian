@@ -24,9 +24,11 @@ Write a fenced `d2` block in a note to see it rendered in Live Preview or Readin
 
 To format the D2 source, place the cursor in the block while editing the note and run **D2: Format D2 Block** from the command palette. The command also works offline on mobile.
 
-On desktop, the plugin uses your installed D2 CLI when available. This preserves your CLI version, local filesystem access, and TALA installation. Mobile always uses the bundled compiler, including for TALA, with no token required. The bundled compiler renders the contents of each block and cannot import files from disk.
+Select **Save SVG** below a diagram to save a copy in the vault’s configured attachment folder. Each save gets its own filename. On Obsidian versions before 1.5.7, the copy is saved beside the note.
 
-If you use Obsidian Sync Standard, install or update D2 from Community plugins on each device. The bundled compiler exceeds that plan’s [5 MB per-file limit](https://obsidian.md/help/sync/plans).
+On desktop, the plugin uses your installed D2 CLI when available. Relative imports start in the note’s folder. For example, `...@shared` loads `shared.d2` beside the note. To refresh after editing an imported file, select **Recompile**. Mobile always uses the bundled compiler, including for TALA, with no token required. The bundled compiler renders the contents of each block and cannot import files from disk.
+
+If Obsidian Sync reports that the plugin exceeds your plan’s [per-file limit](https://obsidian.md/help/sync/plans), install or update D2 from Community plugins on each device.
 
 ## Configurations
 
@@ -37,6 +39,7 @@ If you use Obsidian Sync Standard, install or update D2 from Community plugins o
 - `Container height`: Diagram max render height in pixels (Requires d2 v0.2.2 and up).
 - `Debounce`: Number of milliseconds to wait after a change has made to refresh the diagram (min 100).
 - `Path` (desktop): Set the directory containing your D2 executable if the plugin cannot find it automatically.
+- `Legacy TALA` (desktop): Expand this section to enter a token for an older TALA installation.
 
 ## Usage
 
@@ -46,6 +49,27 @@ Create a fenced codeblock with `d2` as the language tag:
 Hello -> World
 ```
 
+To style one diagram, use D2’s native configuration inside its block:
+
+```d2
+vars: {
+  d2-config: {
+    layout-engine: elk
+    theme-id: 4
+    pad: 24
+    sketch: true
+  }
+}
+Hello -> World
+```
+
+New vaults follow each diagram’s layout, theme, padding, and sketch settings.
+Existing vaults keep their saved overrides. To follow the diagram for an option,
+choose **Use diagram setting** for layout or sketch, or clear the theme ID or padding.
+
+Set `vars.d2-config.animate-interval: 1s` in a diagram with multiple boards
+to animate them in the note. **Save SVG** preserves the animation in the attachment.
+
 ## How to run this plugin locally
 
 - Clone this repo.
@@ -53,7 +77,7 @@ Hello -> World
 - Run `yarn run dev` to start compilation in watch mode.
 - Copy over `main.js`, `styles.css`, `manifest.json` to your vault `[VaultFolder]/.obsidian/plugins/d2-obsidian/`.
 
-Run the mobile regression test with `yarn build`, `yarn playwright-core install webkit`, and `yarn test:mobile`. The [compiler build instructions](./vendor/README.md) explain how to regenerate the bundled D2 dependency.
+Run the mobile regression test with `yarn build`, `yarn playwright-core install webkit`, and `yarn test:mobile`. The build bundles the browser entry of the official [D2.js package](https://www.npmjs.com/package/@d2lang/d2), including its worker and compiler. Its version and integrity are pinned in the Yarn lockfile.
 
 ## FAQ
 

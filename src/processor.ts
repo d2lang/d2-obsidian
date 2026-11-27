@@ -2,6 +2,7 @@ import {
   MarkdownPostProcessorContext,
   MarkdownRenderChild,
   ButtonComponent,
+  Notice,
 } from "obsidian";
 import debounce from "lodash.debounce";
 
@@ -10,10 +11,13 @@ import { D2Renderer } from "./renderer";
 
 export class D2Processor {
   private readonly blocks = new Map<HTMLElement, DiagramBlock>();
-  readonly renderer = new D2Renderer();
+  readonly renderer: D2Renderer;
   private nextId = 0;
+  private pendingSave = Promise.resolve();
 
-  constructor(readonly plugin: D2Plugin) {}
+  constructor(readonly plugin: D2Plugin) {
+    this.renderer = new D2Renderer(plugin.app);
+  }
 
   attemptExport = (
     source: string,
@@ -26,11 +30,45 @@ export class D2Processor {
       this.blocks.set(el, block);
       ctx.addChild(block);
     }
-    return block.update(source);
+    return block.update(source, ctx.sourcePath);
   };
 
   remove(el: HTMLElement) {
     this.blocks.delete(el);
+  }
+
+  saveSVG(sourcePath: string, image: string) {
+    // Reserve attachment names in order when several diagrams in one note are saved.
+    this.pendingSave = this.pendingSave.then(async () => {
+      try {
+        const { fileManager, vault } = this.plugin.app;
+        const slash = sourcePath.lastIndexOf("/") + 1;
+        const note = sourcePath.slice(slash).replace(/\.md$/i, "");
+        const name = note ? `${note} - D2` : "D2 diagram";
+        let path: string;
+        if (typeof fileManager.getAvailablePathForAttachment === "function") {
+          path = await fileManager.getAvailablePathForAttachment(
+            `${name}.svg`,
+            sourcePath
+          );
+        } else {
+          // Obsidian before 1.5.7 has no public attachment-path API. Save beside the note.
+          const stem = sourcePath.slice(0, slash) + name;
+          path = `${stem}.svg`;
+          for (let n = 1; vault.getAbstractFileByPath(path); n++)
+            path = `${stem} ${n}.svg`;
+        }
+        await vault.create(path, image);
+        new Notice(`Saved ${path}`);
+      } catch (error) {
+        new Notice(
+          `Could not save D2 diagram.\n${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+      }
+    });
+    return this.pendingSave;
   }
 
   dispose() {
@@ -44,7 +82,8 @@ class DiagramBlock extends MarkdownRenderChild {
   private controller?: AbortController;
   private previousImage?: string;
   private readonly schedule = debounce(
-    (source: string, signal: AbortSignal) => this.render(source, signal),
+    (source: string, sourcePath: string, signal: AbortSignal) =>
+      this.render(source, sourcePath, signal),
     this.owner.plugin.settings.debounce,
     { leading: true }
   );
@@ -53,7 +92,7 @@ class DiagramBlock extends MarkdownRenderChild {
     super(el);
   }
 
-  update(source: string) {
+  update(source: string, sourcePath: string) {
     this.controller?.abort();
     this.controller = new AbortController();
     this.containerEl.empty();
@@ -61,7 +100,7 @@ class DiagramBlock extends MarkdownRenderChild {
       text: "Generating D2 diagram...",
       cls: "D2__Loading",
     });
-    return this.schedule(source, this.controller.signal);
+    return this.schedule(source, sourcePath, this.controller.signal);
   }
 
   cancel() {
@@ -129,28 +168,38 @@ class DiagramBlock extends MarkdownRenderChild {
     containerEl.innerHTML = this.sanitizeSVGIDs(svgEl, docId);
   }
 
-  private async render(source: string, signal: AbortSignal) {
+  private async render(source: string, sourcePath: string, signal: AbortSignal) {
     const el = this.containerEl;
     try {
       const image = await this.owner.renderer.render(
         source,
         this.owner.plugin.settings,
-        signal
+        signal,
+        sourcePath
       );
       if (signal.aborted) return;
       el.empty();
       this.previousImage = image;
       this.insertImage(image, el, this.docId);
 
-      const button = new ButtonComponent(el)
-        .setClass("Preview__Recompile")
-        .setIcon("recompile")
-        .onClick((e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          this.update(source);
-        });
+      const actions = el.createDiv({ cls: "D2__Actions" });
+      const button = new ButtonComponent(actions).setIcon("recompile").onClick((e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.update(source, sourcePath);
+      });
       button.buttonEl.createEl("span", { text: "Recompile" });
+      const save = new ButtonComponent(actions).setIcon("download").onClick(async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        save.setDisabled(true);
+        try {
+          await this.owner.saveSVG(sourcePath, image);
+        } finally {
+          save.setDisabled(false);
+        }
+      });
+      save.buttonEl.createEl("span", { text: "Save SVG" });
     } catch (error) {
       if (signal.aborted) return;
       el.empty();

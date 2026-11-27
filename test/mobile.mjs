@@ -22,8 +22,8 @@ test(
           this.appendChild(child);
           return child;
         };
-        HTMLElement.prototype.createDiv = function () {
-          return this.createEl("div");
+        HTMLElement.prototype.createDiv = function (options) {
+          return this.createEl("div", options);
         };
         HTMLElement.prototype.empty = function () {
           this.replaceChildren();
@@ -66,10 +66,15 @@ test(
               setClass() {
                 return this;
               }
+              setDisabled(disabled) {
+                this.buttonEl.disabled = disabled;
+                return this;
+              }
               setIcon() {
                 return this;
               }
-              onClick() {
+              onClick(handler) {
+                this.buttonEl.onclick = handler;
                 return this;
               }
             },
@@ -104,6 +109,43 @@ test(
       for (const [i, layout] of ["dagre", "elk", "tala"].entries()) {
         assert.ok(labels[i].includes(layout), `Missing ${layout} diagram label`);
       }
+
+      const appearance = await page.evaluate(async () => {
+        const plugin = new window.module.exports.default();
+        const oldSettings = { layoutEngine: "dagre", theme: 0, pad: 0, sketch: false };
+        const example = { layoutEngine: "elk", theme: 4, pad: 7, sketch: true };
+        const source = "a -> b\na -> c";
+        const configured =
+          "vars: {d2-config: {layout-engine: elk; theme-id: 4; pad: 7; sketch: true}}\n" +
+          source;
+        await plugin.onload();
+        const draw = async (code, overrides = {}) => {
+          const svg = await plugin.processor.renderer.render(
+            code, { ...plugin.settings, ...overrides }, new AbortController().signal
+          );
+          const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
+          return {
+            bounds: doc.documentElement.getAttribute("viewBox"),
+            stroke: /\.stroke-B1\s*\{\s*stroke:\s*([^;}]+)/.exec(svg)?.[1],
+            sketch: Boolean(doc.querySelector('[class*="sketch-overlay"]')),
+          };
+        };
+        try {
+          const fromDiagram = await draw(configured);
+          const explicit = await draw(source, example);
+          plugin.loadData = async () => oldSettings;
+          await plugin.loadSettings();
+          return { fromDiagram, explicit, overridden: await draw(configured), plain: await draw(source) };
+        } finally {
+          plugin.onunload();
+        }
+      });
+      assert.deepEqual(appearance.fromDiagram, appearance.explicit);
+      assert.deepEqual(appearance.overridden, appearance.plain);
+      assert.notEqual(appearance.fromDiagram.bounds, appearance.overridden.bounds);
+      assert.notEqual(appearance.fromDiagram.stroke, appearance.overridden.stroke);
+      assert.equal(appearance.fromDiagram.sketch, true);
+      assert.equal(appearance.overridden.sketch, false);
 
       const results = await page.evaluate(async () => {
         const plugin = new window.module.exports.default();
@@ -184,6 +226,108 @@ test(
         assert.deepEqual(example.notices, []);
       }
       assert.equal(results.boards.note, "```d2\nlayers: @shared\napi\n```");
+
+      const saved = await page.evaluate(async () => {
+        const plugin = new window.module.exports.default();
+        const files = new Map();
+        const paths = [];
+        const folder = "Projects/Attachments/";
+        let fail = false;
+        plugin.app = {
+          fileManager: {
+            async getAvailablePathForAttachment(name, sourcePath) {
+              paths.push([name, sourcePath]);
+              return folder + (files.has(folder + name) ? "Release - D2 1.svg" : name);
+            },
+          },
+          vault: {
+            getAbstractFileByPath: (path) => files.get(path),
+            async create(path, data) {
+              if (fail) throw new Error("Vault is read-only");
+              if (files.has(path)) throw new Error("Already exists");
+              files.set(path, data);
+            },
+          },
+        };
+        await plugin.onload();
+        try {
+          const ctx = { docId: "test", sourcePath: "Projects/Release.md", addChild() {} };
+          const first = document.body.createDiv();
+          const second = document.body.createDiv();
+          const boards = [
+            "service: Server ready",
+            "steps: {",
+            "  accept: {service: Request received}",
+            "  respond: {service: Response sent}",
+            "}",
+          ].join("\n");
+          await plugin.draw(boards, first, ctx);
+          await plugin.draw("vars.d2-config.animate-interval: 1s\n" + boards, second, ctx);
+          const save = (el) => {
+            const btn = Array.from(el.querySelectorAll("button")).find(
+              (button) => button.textContent === "Save SVG"
+            );
+            return btn.onclick(new MouseEvent("click"));
+          };
+          await Promise.all([save(first), save(second)]);
+          const firstSvg = files.get(folder + "Release - D2.svg");
+          const secondSvg = files.get(folder + "Release - D2 1.svg");
+          if (!firstSvg || !secondSvg) throw new Error("Missing attachment");
+          const parsed = new DOMParser().parseFromString(firstSvg, "image/svg+xml");
+          const root = parsed.documentElement;
+          // Load the saved SVG as its own document to exercise its animation without the note.
+          const frame = document.body.createEl("iframe");
+          const url = URL.createObjectURL(new Blob([secondSvg], { type: "image/svg+xml" }));
+          await new Promise((resolve) => {
+            frame.onload = resolve;
+            frame.src = url;
+          });
+          const inspect = (svg) => ({
+            labels: Array.from(svg.querySelectorAll("text"), (node) => node.textContent),
+            durations: svg.getAnimations({ subtree: true }).map((a) => a.effect.getTiming().duration),
+          });
+          const staticPreview = inspect(first.querySelector("svg"));
+          const animatedPreview = inspect(second.querySelector("svg"));
+          const animatedFile = inspect(frame.contentDocument.documentElement);
+          frame.remove();
+          URL.revokeObjectURL(url);
+          // Legacy Obsidian has no attachment-path API. Two saves must coexist beside the note.
+          delete plugin.app.fileManager.getAvailablePathForAttachment;
+          await save(first);
+          await save(second);
+          fail = true;
+          await save(second);
+          return {
+            paths,
+            files: [...files.keys()],
+            firstLabels: Array.from(root.querySelectorAll("text"), (node) => node.textContent),
+            staticPreview,
+            animatedPreview,
+            animatedFile,
+            isSvg: root.localName === "svg" && root.namespaceURI === "http://www.w3.org/2000/svg",
+            previewStyle: root.style.maxHeight,
+            error: window.notices.at(-1),
+          };
+        } finally {
+          plugin.onunload();
+        }
+      });
+      assert.deepEqual(saved.paths, [
+        ["Release - D2.svg", "Projects/Release.md"],
+        ["Release - D2.svg", "Projects/Release.md"],
+      ]);
+      assert.deepEqual(saved.files, [
+        "Projects/Attachments/Release - D2.svg", "Projects/Attachments/Release - D2 1.svg",
+        "Projects/Release - D2.svg", "Projects/Release - D2 1.svg",
+      ]);
+      assert.ok(saved.isSvg);
+      assert.deepEqual(saved.firstLabels, ["Server ready"]);
+      assert.deepEqual(saved.staticPreview, { labels: ["Server ready"], durations: [] });
+      assert.deepEqual(saved.animatedPreview.labels, ["Server ready", "Request received", "Response sent"]);
+      assert.ok(saved.animatedPreview.durations.includes(3000));
+      assert.deepEqual(saved.animatedFile, saved.animatedPreview);
+      assert.equal(saved.previewStyle, "");
+      assert.match(saved.error, /Vault is read-only/);
     } finally {
       await browser.close();
     }

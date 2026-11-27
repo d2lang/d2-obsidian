@@ -1,5 +1,6 @@
 import { execFile, spawn } from "child_process";
-import { delimiter, join } from "path";
+import { delimiter, dirname, join, resolve } from "path";
+import which from "which";
 
 import type { D2PluginSettings } from "./settings";
 
@@ -30,26 +31,31 @@ async function cliSearchPath(): Promise<string[]> {
 export async function renderCLI(
   source: string,
   settings: D2PluginSettings,
-  signal: AbortSignal
-): Promise<string> {
+  signal: AbortSignal,
+  notePath?: string
+): Promise<string | undefined> {
   const paths = await (searchPath ??= cliSearchPath());
   if (signal.aborted) throw new Error("Render cancelled");
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     PATH: [settings.d2Path, ...paths].filter(Boolean).join(delimiter),
   };
+  // Resolve the executable before changing the child working directory to the note.
+  const found = await which("d2", { path: env.PATH, nothrow: true });
+  if (!found) return undefined;
+  const executable = resolve(found);
   if (settings.apiToken) env.TSTRUCT_TOKEN = settings.apiToken;
-  const args = [
-    "-",
-    `--theme=${settings.theme}`,
-    `--layout=${settings.layoutEngine}`,
-    `--pad=${settings.pad}`,
-    `--sketch=${settings.sketch}`,
-    "--bundle=false",
-    "--scale=1",
-  ];
+  const args = ["-", "--bundle=false", "--scale=1"];
+  if (settings.theme !== null) args.push(`--theme=${settings.theme}`);
+  if (settings.layoutEngine !== null) args.push(`--layout=${settings.layoutEngine}`);
+  if (settings.pad !== null) args.push(`--pad=${settings.pad}`);
+  if (settings.sketch !== null) args.push(`--sketch=${settings.sketch}`);
   return new Promise((resolve, reject) => {
-    const child = spawn("d2", args, { env, signal });
+    const child = spawn(executable, args, {
+      cwd: notePath ? dirname(notePath) : undefined,
+      env,
+      signal,
+    });
     let stdout = "";
     let stderr = "";
     child.stdout.setEncoding("utf8").on("data", (data) => {
