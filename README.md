@@ -48,6 +48,24 @@ Create a fenced codeblock with `d2` as the language tag:
 Hello -> World
 ```
 
+To style one diagram, use D2’s native configuration inside its block:
+
+```d2
+vars: {
+  d2-config: {
+    layout-engine: elk
+    theme-id: 4
+    pad: 24
+    sketch: true
+  }
+}
+Hello -> World
+```
+
+New vaults follow each diagram’s layout, theme, padding, and sketch settings.
+Existing vaults keep their saved overrides. To follow the diagram for an option,
+choose **Use diagram setting** for layout or sketch, or clear the theme ID or padding.
+
 ## How to run this plugin locally
 
 - Clone this repo.

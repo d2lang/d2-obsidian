@@ -110,6 +110,43 @@ test(
         assert.ok(labels[i].includes(layout), `Missing ${layout} diagram label`);
       }
 
+      const appearance = await page.evaluate(async () => {
+        const plugin = new window.module.exports.default();
+        const oldSettings = { layoutEngine: "dagre", theme: 0, pad: 0, sketch: false };
+        const example = { layoutEngine: "elk", theme: 4, pad: 7, sketch: true };
+        const source = "a -> b\na -> c";
+        const configured =
+          "vars: {d2-config: {layout-engine: elk; theme-id: 4; pad: 7; sketch: true}}\n" +
+          source;
+        await plugin.onload();
+        const draw = async (code, overrides = {}) => {
+          const svg = await plugin.processor.renderer.render(
+            code, { ...plugin.settings, ...overrides }, new AbortController().signal
+          );
+          const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
+          return {
+            bounds: doc.documentElement.getAttribute("viewBox"),
+            stroke: /\.stroke-B1\s*\{\s*stroke:\s*([^;}]+)/.exec(svg)?.[1],
+            sketch: Boolean(doc.querySelector('[class*="sketch-overlay"]')),
+          };
+        };
+        try {
+          const fromDiagram = await draw(configured);
+          const explicit = await draw(source, example);
+          plugin.loadData = async () => oldSettings;
+          await plugin.loadSettings();
+          return { fromDiagram, explicit, overridden: await draw(configured), plain: await draw(source) };
+        } finally {
+          plugin.onunload();
+        }
+      });
+      assert.deepEqual(appearance.fromDiagram, appearance.explicit);
+      assert.deepEqual(appearance.overridden, appearance.plain);
+      assert.notEqual(appearance.fromDiagram.bounds, appearance.overridden.bounds);
+      assert.notEqual(appearance.fromDiagram.stroke, appearance.overridden.stroke);
+      assert.equal(appearance.fromDiagram.sketch, true);
+      assert.equal(appearance.overridden.sketch, false);
+
       const results = await page.evaluate(async () => {
         const plugin = new window.module.exports.default();
         await plugin.onload();

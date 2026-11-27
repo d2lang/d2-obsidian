@@ -39,15 +39,11 @@ export async function renderCLI(
     PATH: [settings.d2Path, ...paths].filter(Boolean).join(delimiter),
   };
   if (settings.apiToken) env.TSTRUCT_TOKEN = settings.apiToken;
-  const args = [
-    "-",
-    `--theme=${settings.theme}`,
-    `--layout=${settings.layoutEngine}`,
-    `--pad=${settings.pad}`,
-    `--sketch=${settings.sketch}`,
-    "--bundle=false",
-    "--scale=1",
-  ];
+  const args = ["-", "--bundle=false", "--scale=1"];
+  if (settings.theme !== null) args.push(`--theme=${settings.theme}`);
+  if (settings.layoutEngine !== null) args.push(`--layout=${settings.layoutEngine}`);
+  if (settings.pad !== null) args.push(`--pad=${settings.pad}`);
+  if (settings.sketch !== null) args.push(`--sketch=${settings.sketch}`);
   return new Promise((resolve, reject) => {
     const child = spawn("d2", args, { env, signal });
     let stdout = "";

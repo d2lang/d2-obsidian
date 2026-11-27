@@ -27,14 +27,13 @@ export class D2Renderer {
     }
 
     const compiler = await this.getCompiler(signal);
+    const layout = settings.layoutEngine;
     return compiler.renderSVG(source, {
       layout:
-        settings.layoutEngine === "elk" || settings.layoutEngine === "tala"
-          ? settings.layoutEngine
-          : "dagre",
-      themeID: settings.theme,
-      pad: settings.pad,
-      sketch: settings.sketch,
+        layout === "elk" || layout === "tala" || layout === "dagre" ? layout : undefined,
+      themeID: settings.theme ?? undefined,
+      pad: settings.pad ?? undefined,
+      sketch: settings.sketch ?? undefined,
       scale: 1,
     });
   }

@@ -4,24 +4,24 @@ import D2Plugin from "./main";
 import { LAYOUT_ENGINES } from "./constants";
 
 export interface D2PluginSettings {
-  layoutEngine: string;
+  layoutEngine: string | null;
   apiToken: string;
   debounce: number;
-  theme: number;
+  theme: number | null;
   d2Path: string;
-  pad: number;
-  sketch: boolean;
+  pad: number | null;
+  sketch: boolean | null;
   containerHeight: number;
 }
 
 export const DEFAULT_SETTINGS: D2PluginSettings = {
-  layoutEngine: "dagre",
+  layoutEngine: null,
   debounce: 500,
-  theme: 0,
+  theme: null,
   apiToken: "",
   d2Path: "",
-  pad: 100,
-  sketch: false,
+  pad: null,
+  sketch: null,
   containerHeight: 800,
 };
 
@@ -47,7 +47,6 @@ export class D2SettingsTab extends PluginSettingTab {
         text
           .setPlaceholder("tstruct_...")
           .setValue(this.plugin.settings.apiToken)
-          .setDisabled(this.plugin.settings.layoutEngine !== LAYOUT_ENGINES.TALA.value)
           .onChange(async (value) => {
             if (value && !value.startsWith("tstruct_")) {
               new Notice("Invalid API token");
@@ -66,15 +65,18 @@ export class D2SettingsTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Layout engine")
-      .setDesc("Dagre, ELK, and TALA are included in the bundled compiler.")
+      .setDesc(
+        "Follow each diagram’s D2 configuration or override the layout for this vault."
+      )
       .addDropdown((dropdown) => {
         dropdown
+          .addOption("", "Use diagram setting")
           .addOption(LAYOUT_ENGINES.DAGRE.value, LAYOUT_ENGINES.DAGRE.label)
           .addOption(LAYOUT_ENGINES.ELK.value, LAYOUT_ENGINES.ELK.label)
           .addOption(LAYOUT_ENGINES.TALA.value, LAYOUT_ENGINES.TALA.label)
-          .setValue(this.plugin.settings.layoutEngine)
+          .setValue(this.plugin.settings.layoutEngine ?? "")
           .onChange(async (value) => {
-            this.plugin.settings.layoutEngine = value;
+            this.plugin.settings.layoutEngine = value || null;
             await this.plugin.saveSettings();
             this.display();
           });
@@ -83,15 +85,15 @@ export class D2SettingsTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Theme ID")
       .setDesc(
-        "Available themes are located at https://github.com/d2lang/d2/tree/master/d2themes"
+        "Leave blank to use each diagram’s theme. Enter a D2 theme ID to override it for this vault."
       )
       .addText((text) =>
         text
-          .setPlaceholder("Enter a theme ID")
-          .setValue(String(this.plugin.settings.theme))
+          .setPlaceholder("Use diagram setting")
+          .setValue(this.plugin.settings.theme?.toString() ?? "")
           .onChange(async (value) => {
-            if (!isNaN(Number(value)) || value === "") {
-              this.plugin.settings.theme = Number(value || DEFAULT_SETTINGS.theme);
+            if (Number.isSafeInteger(Number(value))) {
+              this.plugin.settings.theme = value.trim() ? Number(value) : null;
               await this.plugin.saveSettings();
             } else {
               new Notice("Please specify a valid number");
@@ -101,32 +103,38 @@ export class D2SettingsTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Pad")
-      .setDesc("Pixels padded around the rendered diagram")
+      .setDesc(
+        "Leave blank to use each diagram’s padding, or enter the number of pixels to use."
+      )
       .addText((text) =>
         text
-          .setPlaceholder(String(DEFAULT_SETTINGS.pad))
-          .setValue(String(this.plugin.settings.pad))
+          .setPlaceholder("Use diagram setting")
+          .setValue(this.plugin.settings.pad?.toString() ?? "")
           .onChange(async (value) => {
-            if (isNaN(Number(value))) {
-              new Notice("Please specify a valid number");
-              this.plugin.settings.pad = Number(DEFAULT_SETTINGS.pad);
-            } else if (value === "") {
-              this.plugin.settings.pad = Number(DEFAULT_SETTINGS.pad);
-            } else {
-              this.plugin.settings.pad = Number(value);
+            if (!Number.isSafeInteger(Number(value))) {
+              new Notice("Please specify a whole number");
+              return;
             }
+            this.plugin.settings.pad = value.trim() ? Number(value) : null;
             await this.plugin.saveSettings();
           })
       );
 
     new Setting(containerEl)
       .setName("Sketch mode")
-      .setDesc("Render the diagram to look like it was sketched by hand")
-      .addToggle((toggle) =>
-        toggle.setValue(this.plugin.settings.sketch).onChange(async (value) => {
-          this.plugin.settings.sketch = value;
-          await this.plugin.saveSettings();
-        })
+      .setDesc(
+        "Follow each diagram’s sketch setting or choose a drawing style for this vault."
+      )
+      .addDropdown((dropdown) =>
+        dropdown
+          .addOption("", "Use diagram setting")
+          .addOption("true", "Sketch")
+          .addOption("false", "Standard")
+          .setValue(this.plugin.settings.sketch?.toString() ?? "")
+          .onChange(async (value) => {
+            this.plugin.settings.sketch = value === "" ? null : value === "true";
+            await this.plugin.saveSettings();
+          })
       );
 
     new Setting(containerEl)
@@ -193,7 +201,10 @@ export class D2SettingsTab extends PluginSettingTab {
           });
       });
 
-    if (this.plugin.settings.layoutEngine === LAYOUT_ENGINES.TALA.value) {
+    if (
+      !this.plugin.settings.layoutEngine ||
+      this.plugin.settings.layoutEngine === LAYOUT_ENGINES.TALA.value
+    ) {
       this.addTALASettings();
     }
   }
