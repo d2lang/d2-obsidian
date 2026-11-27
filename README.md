@@ -67,6 +67,9 @@ New vaults follow each diagram’s layout, theme, padding, and sketch settings.
 Existing vaults keep their saved overrides. To follow the diagram for an option,
 choose **Use diagram setting** for layout or sketch, or clear the theme ID or padding.
 
+Set `vars.d2-config.animate-interval: 1s` in a diagram with multiple boards
+to animate them in the note. **Save SVG** preserves the animation in the attachment.
+
 ## How to run this plugin locally
 
 - Clone this repo.

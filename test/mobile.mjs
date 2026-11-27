@@ -254,8 +254,15 @@ test(
           const ctx = { docId: "test", sourcePath: "Projects/Release.md", addChild() {} };
           const first = document.body.createDiv();
           const second = document.body.createDiv();
-          await plugin.draw("reader -> writer", first, ctx);
-          await plugin.draw("client -> server", second, ctx);
+          const boards = [
+            "service: Server ready",
+            "steps: {",
+            "  accept: {service: Request received}",
+            "  respond: {service: Response sent}",
+            "}",
+          ].join("\n");
+          await plugin.draw(boards, first, ctx);
+          await plugin.draw("vars.d2-config.animate-interval: 1s\n" + boards, second, ctx);
           const save = (el) => {
             const btn = Array.from(el.querySelectorAll("button")).find(
               (button) => button.textContent === "Save SVG"
@@ -268,6 +275,22 @@ test(
           if (!firstSvg || !secondSvg) throw new Error("Missing attachment");
           const parsed = new DOMParser().parseFromString(firstSvg, "image/svg+xml");
           const root = parsed.documentElement;
+          // Load the saved SVG as its own document to exercise its animation without the note.
+          const frame = document.body.createEl("iframe");
+          const url = URL.createObjectURL(new Blob([secondSvg], { type: "image/svg+xml" }));
+          await new Promise((resolve) => {
+            frame.onload = resolve;
+            frame.src = url;
+          });
+          const inspect = (svg) => ({
+            labels: Array.from(svg.querySelectorAll("text"), (node) => node.textContent),
+            durations: svg.getAnimations({ subtree: true }).map((a) => a.effect.getTiming().duration),
+          });
+          const staticPreview = inspect(first.querySelector("svg"));
+          const animatedPreview = inspect(second.querySelector("svg"));
+          const animatedFile = inspect(frame.contentDocument.documentElement);
+          frame.remove();
+          URL.revokeObjectURL(url);
           // Legacy Obsidian has no attachment-path API. Two saves must coexist beside the note.
           delete plugin.app.fileManager.getAvailablePathForAttachment;
           await save(first);
@@ -278,7 +301,9 @@ test(
             paths,
             files: [...files.keys()],
             firstLabels: Array.from(root.querySelectorAll("text"), (node) => node.textContent),
-            secondHasServer: secondSvg.includes("server"),
+            staticPreview,
+            animatedPreview,
+            animatedFile,
             isSvg: root.localName === "svg" && root.namespaceURI === "http://www.w3.org/2000/svg",
             previewStyle: root.style.maxHeight,
             error: window.notices.at(-1),
@@ -295,7 +320,12 @@ test(
         "Projects/Attachments/Release - D2.svg", "Projects/Attachments/Release - D2 1.svg",
         "Projects/Release - D2.svg", "Projects/Release - D2 1.svg",
       ]);
-      assert.ok(saved.isSvg && saved.secondHasServer && saved.firstLabels.includes("reader"));
+      assert.ok(saved.isSvg);
+      assert.deepEqual(saved.firstLabels, ["Server ready"]);
+      assert.deepEqual(saved.staticPreview, { labels: ["Server ready"], durations: [] });
+      assert.deepEqual(saved.animatedPreview.labels, ["Server ready", "Request received", "Response sent"]);
+      assert.ok(saved.animatedPreview.durations.includes(3000));
+      assert.deepEqual(saved.animatedFile, saved.animatedPreview);
       assert.equal(saved.previewStyle, "");
       assert.match(saved.error, /Vault is read-only/);
     } finally {

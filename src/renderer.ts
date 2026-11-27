@@ -33,7 +33,7 @@ export class D2Renderer {
 
     const compiler = await this.getCompiler(signal);
     const layout = settings.layoutEngine;
-    return compiler.renderSVG(source, {
+    const { diagram, renderOptions } = await compiler.compile(source, {
       layout:
         layout === "elk" || layout === "tala" || layout === "dagre" ? layout : undefined,
       themeID: settings.theme ?? undefined,
@@ -41,6 +41,10 @@ export class D2Renderer {
       sketch: settings.sketch ?? undefined,
       scale: 1,
     });
+    if (this.disposed || signal.aborted) throw new Error("Render cancelled");
+    // D2 resolves the interval from the diagram. Only animated SVGs accept a target of "*".
+    if ((renderOptions.animateInterval ?? 0) > 0) renderOptions.target = "*";
+    return compiler.render(diagram, renderOptions);
   }
 
   async format(source: string): Promise<string> {
