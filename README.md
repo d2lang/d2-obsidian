@@ -24,9 +24,11 @@ Write a fenced `d2` block in a note to see it rendered in Live Preview or Readin
 
 To format the D2 source, place the cursor in the block while editing the note and run **D2: Format D2 Block** from the command palette. The command also works offline on mobile.
 
+Select **Save SVG** below a diagram to save a copy in the vault’s configured attachment folder. Each save gets its own filename. On Obsidian versions before 1.5.7, the copy is saved beside the note.
+
 On desktop, the plugin uses your installed D2 CLI when available. This preserves your CLI version, local filesystem access, and TALA installation. Mobile always uses the bundled compiler, including for TALA, with no token required. The bundled compiler renders the contents of each block and cannot import files from disk.
 
-If you use Obsidian Sync Standard, install or update D2 from Community plugins on each device. The bundled compiler exceeds that plan’s [5 MB per-file limit](https://obsidian.md/help/sync/plans).
+If Obsidian Sync reports that the plugin exceeds your plan’s [per-file limit](https://obsidian.md/help/sync/plans), install or update D2 from Community plugins on each device.
 
 ## Configurations
 
@@ -53,7 +55,7 @@ Hello -> World
 - Run `yarn run dev` to start compilation in watch mode.
 - Copy over `main.js`, `styles.css`, `manifest.json` to your vault `[VaultFolder]/.obsidian/plugins/d2-obsidian/`.
 
-Run the mobile regression test with `yarn build`, `yarn playwright-core install webkit`, and `yarn test:mobile`. The [compiler build instructions](./vendor/README.md) explain how to regenerate the bundled D2 dependency.
+Run the mobile regression test with `yarn build`, `yarn playwright-core install webkit`, and `yarn test:mobile`. The build bundles the browser entry of the official [D2.js package](https://www.npmjs.com/package/@d2lang/d2), including its worker and compiler. Its version and integrity are pinned in the Yarn lockfile.
 
 ## FAQ
 
