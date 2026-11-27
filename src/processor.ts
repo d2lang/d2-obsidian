@@ -11,11 +11,13 @@ import { D2Renderer } from "./renderer";
 
 export class D2Processor {
   private readonly blocks = new Map<HTMLElement, DiagramBlock>();
-  readonly renderer = new D2Renderer();
+  readonly renderer: D2Renderer;
   private nextId = 0;
   private pendingSave = Promise.resolve();
 
-  constructor(readonly plugin: D2Plugin) {}
+  constructor(readonly plugin: D2Plugin) {
+    this.renderer = new D2Renderer(plugin.app);
+  }
 
   attemptExport = (
     source: string,
@@ -172,7 +174,8 @@ class DiagramBlock extends MarkdownRenderChild {
       const image = await this.owner.renderer.render(
         source,
         this.owner.plugin.settings,
-        signal
+        signal,
+        sourcePath
       );
       if (signal.aborted) return;
       el.empty();

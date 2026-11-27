@@ -15,6 +15,8 @@ const notices = [
 	"node_modules/mdurl/LICENSE",
 	"node_modules/punycode.js/LICENSE-MIT.txt",
 	"node_modules/uc.micro/LICENSE.txt",
+	"node_modules/which/LICENSE",
+	"node_modules/isexe/LICENSE",
 ]
 	.map((file) => readFileSync(file, "utf8").replace(/\*\//g, "* /"))
 	.join("\n\n");

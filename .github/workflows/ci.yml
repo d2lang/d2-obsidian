@@ -22,6 +22,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      - uses: d2lang/setup-d2@225acc6be5fbc727f47706f3743327cf17745c7a # v1.0.0
+        with:
+          version: v0.10.0
+      - run: yarn test:desktop
       - run: yarn playwright-core install --with-deps webkit
       - run: yarn test:mobile
   nofixups:

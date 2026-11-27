@@ -34,16 +34,15 @@ export class D2SettingsTab extends PluginSettingTab {
   }
 
   addTALASettings() {
-    const talaSettings = this.containerEl.createEl("div");
-    talaSettings.createEl("h3", {
-      text: "TALA settings",
-    });
+    const talaSettings = this.containerEl.createEl("details");
+    talaSettings.createEl("summary", { text: "Legacy TALA" });
     new Setting(talaSettings)
       .setName("API token")
       .setDesc(
         "Only older desktop TALA installations require a token. The bundled TALA layout works offline without one."
       )
-      .addText((text) =>
+      .addText((text) => {
+        text.inputEl.type = "password";
         text
           .setPlaceholder("tstruct_...")
           .setValue(this.plugin.settings.apiToken)
@@ -54,8 +53,8 @@ export class D2SettingsTab extends PluginSettingTab {
               this.plugin.settings.apiToken = value;
               await this.plugin.saveSettings();
             }
-          })
-      );
+          });
+      });
   }
 
   display(): void {
@@ -78,7 +77,6 @@ export class D2SettingsTab extends PluginSettingTab {
           .onChange(async (value) => {
             this.plugin.settings.layoutEngine = value || null;
             await this.plugin.saveSettings();
-            this.display();
           });
       });
 
@@ -193,7 +191,7 @@ export class D2SettingsTab extends PluginSettingTab {
       )
       .addText((text) => {
         text
-          .setPlaceholder("/usr/local/Cellar")
+          .setPlaceholder("/usr/local/bin")
           .setValue(this.plugin.settings.d2Path)
           .onChange(async (value) => {
             this.plugin.settings.d2Path = value;
@@ -201,11 +199,6 @@ export class D2SettingsTab extends PluginSettingTab {
           });
       });
 
-    if (
-      !this.plugin.settings.layoutEngine ||
-      this.plugin.settings.layoutEngine === LAYOUT_ENGINES.TALA.value
-    ) {
-      this.addTALASettings();
-    }
+    this.addTALASettings();
   }
 }

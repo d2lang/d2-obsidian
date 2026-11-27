@@ -26,7 +26,7 @@ To format the D2 source, place the cursor in the block while editing the note an
 
 Select **Save SVG** below a diagram to save a copy in the vault’s configured attachment folder. Each save gets its own filename. On Obsidian versions before 1.5.7, the copy is saved beside the note.
 
-On desktop, the plugin uses your installed D2 CLI when available. This preserves your CLI version, local filesystem access, and TALA installation. Mobile always uses the bundled compiler, including for TALA, with no token required. The bundled compiler renders the contents of each block and cannot import files from disk.
+On desktop, the plugin uses your installed D2 CLI when available. Relative imports start in the note’s folder. For example, `...@shared` loads `shared.d2` beside the note. To refresh after editing an imported file, select **Recompile**. Mobile always uses the bundled compiler, including for TALA, with no token required. The bundled compiler renders the contents of each block and cannot import files from disk.
 
 If Obsidian Sync reports that the plugin exceeds your plan’s [per-file limit](https://obsidian.md/help/sync/plans), install or update D2 from Community plugins on each device.
 
@@ -39,6 +39,7 @@ If Obsidian Sync reports that the plugin exceeds your plan’s [per-file limit](
 - `Container height`: Diagram max render height in pixels (Requires d2 v0.2.2 and up).
 - `Debounce`: Number of milliseconds to wait after a change has made to refresh the diagram (min 100).
 - `Path` (desktop): Set the directory containing your D2 executable if the plugin cannot find it automatically.
+- `Legacy TALA` (desktop): Expand this section to enter a token for an older TALA installation.
 
 ## Usage
 
