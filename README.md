@@ -20,13 +20,13 @@ https://user-images.githubusercontent.com/6413609/205414613-5b2559f1-0645-4432-b
 
 In Obsidian, open **Settings → Community plugins → Browse**, search for **D2**, then select **Install** and **Enable**.
 
-Write a fenced `d2` block in a note to see it rendered in Live Preview or Reading view. The plugin includes an offline compiler with the Dagre, ELK, and TALA layouts on desktop, iPhone, iPad, and Android.
+Write a fenced `d2` block in a note to see it rendered in Live Preview or Reading view. The plugin bundles D2.js, including the Dagre, ELK, and TALA layouts. Rendering and formatting work offline on desktop, iPhone, iPad, and Android with just the plugin installed.
 
 To format the D2 source, place the cursor in the block while editing the note and run **D2: Format D2 Block** from the command palette. The command also works offline on mobile.
 
 Select **Save SVG** below a diagram to save a copy in the vault’s configured attachment folder. Each save gets its own filename. On Obsidian versions before 1.5.7, the copy is saved beside the note.
 
-On desktop, the plugin uses your installed D2 CLI when available. Relative imports start in the note’s folder. For example, `...@shared` loads `shared.d2` beside the note. To refresh after editing an imported file, select **Recompile**. Mobile always uses the bundled compiler, including for TALA, with no token required. The bundled compiler renders the contents of each block and cannot import files from disk.
+Diagrams can import other `.d2` files in the vault. For example, `...@shared` loads `shared.d2` beside the note. Nested imports resolve relative to the importing file. Select **Recompile** after editing an imported file.
 
 If Obsidian Sync reports that the plugin exceeds your plan’s [per-file limit](https://obsidian.md/help/sync/plans), install or update D2 from Community plugins on each device.
 
@@ -36,10 +36,8 @@ If Obsidian Sync reports that the plugin exceeds your plan’s [per-file limit](
 - `Theme ID`: For a list of available themes, visit the [D2 repository](https://github.com/d2lang/d2/tree/master/d2themes).
 - `Pad`: Number of pixels padded around the rendered diagram.
 - `Sketch mode`: Render the diagram to look like it was sketched by hand.
-- `Container height`: Diagram max render height in pixels (Requires d2 v0.2.2 and up).
+- `Container height`: Maximum diagram height in pixels.
 - `Debounce`: Number of milliseconds to wait after a change has made to refresh the diagram (min 100).
-- `Path` (desktop): Set the directory containing your D2 executable if the plugin cannot find it automatically.
-- `Legacy TALA` (desktop): Expand this section to enter a token for an older TALA installation.
 
 ## Usage
 
@@ -77,12 +75,10 @@ to animate them in the note. **Save SVG** preserves the animation in the attachm
 - Run `yarn run dev` to start compilation in watch mode.
 - Copy over `main.js`, `styles.css`, `manifest.json` to your vault `[VaultFolder]/.obsidian/plugins/d2-obsidian/`.
 
-Run the mobile regression test with `yarn build`, `yarn playwright-core install webkit`, and `yarn test:mobile`. The build bundles the browser entry of the official [D2.js package](https://www.npmjs.com/package/@d2lang/d2), including its worker and compiler. Its version and integrity are pinned in the Yarn lockfile.
+Run the offline rendering tests with `yarn build`, `yarn playwright-core install chromium webkit`, `yarn test:desktop`, and `yarn test:mobile`. The build bundles the browser entry of the official [D2.js package](https://www.npmjs.com/package/@d2lang/d2), including its worker and compiler. Its version and integrity are pinned in the Yarn lockfile.
 
 ## FAQ
 
-- How do I use an installed D2 CLI or TALA on desktop?
-  - Set **Path** to the directory containing the `d2` executable, for example `/usr/local/bin`. Older CLI versions may need a separate TALA installation. Clear **Path** to allow the bundled fallback.
 - I have a question or need help.
   - The best way to get help is to ask on [D2 Discord](https://discord.gg/NF6X8K4eDq).
 - I'd like to contribute.
